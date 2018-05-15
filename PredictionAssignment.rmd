@@ -1,0 +1,111 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Alberto Villa"
+date: "21 marzo 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using technological devices (such as Jawbone Up, Nike FuelBand, and Fitbit) it is now possible to collect a large amount of data about personal activity relatively inexpensively.  
+In this project, we will use data collected by quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health - with the goal to understand, by means machine learning algorithms, how well a set of barbell lifts was performed 
+
+
+## Data and methods 
+Data corresponds to info about six males 20-28 y.o., performing 10 repetitions of the Unilateral Dumbbell Biceps Curl. Variable "class"" specify if it was done correctly (Class A) or not (Classes B-E). 
+
+Training and test data are available online at the following addresses:
+Train: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+Test:  https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+More information about the data can be found at the following website: http://groupware.les.inf.puc-rio.br/har 
+
+
+The prediction will be done with two classic methodologies, include in the caret package: Random Forest and Linear Discriminant Analysis.
+
+
+## Data preparation
+After downloading the data, we perform a basic data cleaning, eliminating variable with very small variance (as they may confound the predictor), with too many NAs (as they could not be used for training) and variables containing characters/fields not useful to train the model. 
+
+```{r data, cache=TRUE}
+library(caret)
+library(rpart)
+library(Hmisc)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(randomForest)
+library(cowplot)
+library(gridExtra)
+library(ROCR)
+library(corrplot)
+
+
+# Download the training and test data
+download.file(url = "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",  destfile = "./prediction_training.csv")
+pred_train <- read.csv("./prediction_training.csv", na.strings=c("NA","#DIV/0!",""))
+
+download.file(url = "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "./prediction_testing.csv")
+pred_test<- read.csv("./prediction_testing.csv", na.strings=c("NA","#DIV/0!",""))
+
+# Remove variables with variance close to zero
+n0var      <- nearZeroVar(pred_train)
+pred_train <- pred_train[, -n0var]
+pred_test  <- pred_test[, -n0var] 
+
+# remove variables that are mostly NA (>95% cases)
+AllNA      <- sapply(pred_train, function(x) mean(is.na(x))) > 0.95
+pred_train <- pred_train[, AllNA==FALSE]
+pred_test  <- pred_test[, AllNA==FALSE]
+
+pred_train <- pred_train[, -(1:5)]
+pred_test  <- pred_test[, -(1:5)]
+```
+
+After having cleaned the data, we split the "known data" (original training data), in training - used to learn the model - and test, that will give us a realistic assumption of what accuracy we can expect from the model.
+
+```{r train_test}
+inTrain  <- createDataPartition(pred_train$classe, p=0.7, list=FALSE)
+TrainSet <- pred_train[inTrain, ]
+TestSet  <- pred_train[-inTrain, ]
+```
+
+## Model Training to select the best predictor
+Two models will be compared to understand which one performs better on this problem: Random Forest and Linear Discriminant Analysis, both from the caret package. Linear Discriminant Analysis offers the advantage of a simpler and less computational heavy algorithm; Random Forest is however able of greater generalization and should be preferred in case of complex classification tasks. 
+
+The application of a simple Linear Discriminant Model leads to an accuracy of about 72%.
+```{r lda}
+modFitLDA <- train(classe ~ ., data=TrainSet, method="lda")
+#modFitLDA$finalModel
+predictLDA <- predict(modFitLDA, newdata=TestSet)
+confMatLDA <- confusionMatrix(predictLDA, TestSet$classe)
+confMatLDA
+```
+
+On the other hand, using a Random Forest classifier leads to a much higher accuracy, close to 100%. 
+
+```{r rf, cache=TRUE}
+set.seed(1400)
+controlRF <- trainControl(method="cv", number=3, verboseIter=TRUE)
+modFitRandForest <- train(classe ~ ., data=TrainSet, method="rf",
+                          trControl=controlRF)
+modFitRandForest$finalModel
+predictRandForest <- predict(modFitRandForest, newdata=TestSet)
+confMatRandForest <- confusionMatrix(predictRandForest, TestSet$classe)
+confMatRandForest
+```
+
+Because of this reason, the random forest algorithm will be used to calculate if the 20 exercises of the test set have been performed correctly or not.
+
+```{r prediction}
+final_rf  <- predict(modFitRandForest,pred_test)
+correct_exercises <- sum(final_rf=="A")
+```
+
+## Conclusions
+Random Forest has proven to be the most accurate algorithm (compared to LDA), to understand if physical exercises have been performed correctly, with an accuracy close to 100%, versus 70% of LDA. When applying this prediction method to the test set, the result is that 7 out 20 exercises have been well performed.
