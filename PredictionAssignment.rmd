@@ -1,7 +1,7 @@
 ---
-title: "Prediction Assignment Writeup"
+title: "Prediction Assignment"
 author: "Alberto Villa"
-date: "21 marzo 2018"
+date: "16 May 2018"
 output: html_document
 ---
 
@@ -32,19 +32,15 @@ The prediction will be done with two classic methodologies, include in the caret
 After downloading the data, we perform a basic data cleaning, eliminating variable with very small variance (as they may confound the predictor), with too many NAs (as they could not be used for training) and variables containing characters/fields not useful to train the model. 
 
 ```{r data, cache=TRUE}
-library(caret)
-library(rpart)
-library(Hmisc)
-library(knitr)
-library(ggplot2)
-library(dplyr)
-library(caret)
-library(randomForest)
-library(cowplot)
-library(gridExtra)
-library(ROCR)
-library(corrplot)
-
+library(caret, quietly = TRUE)
+library(rpart, quietly = TRUE)
+library(Hmisc, quietly = TRUE)
+library(knitr, quietly = TRUE)
+library(ggplot2, quietly = TRUE)
+library(dplyr, quietly = TRUE)
+library(randomForest, quietly = TRUE)
+library(cowplot, quietly = TRUE)
+library(gridExtra, quietly = TRUE)
 
 # Download the training and test data
 download.file(url = "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",  destfile = "./prediction_training.csv")
